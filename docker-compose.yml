@@ -1,0 +1,43 @@
+# docker compose up --build   (Neon via DATABASE_URL in .env)
+# docker compose --profile localdb up --build   (adds a local Postgres; set DATABASE_URL=postgresql://onboard:onboard@postgres:5432/onboardiq)
+services:
+  redis:
+    image: redis:7-alpine
+    healthcheck: { test: ["CMD", "redis-cli", "ping"], interval: 5s, retries: 10 }
+
+  ai-service:
+    build: ./ai-service
+    env_file: .env
+    volumes: ["./data:/data:ro"]
+    healthcheck: { test: ["CMD", "python", "-c", "import urllib.request;urllib.request.urlopen('http://localhost:8000/health')"], interval: 10s, retries: 10 }
+
+  backend:
+    build: ./backend
+    env_file: .env
+    environment:
+      REDIS_URL: redis://redis:6379
+      AI_SERVICE_URL: http://ai-service:8000
+      CORE_BANKING_URL: http://localhost:4000/internal/core-banking
+      DATA_DIR: /data
+      UPLOAD_DIR: /storage
+      SEED_ON_START: ${SEED_ON_START:-0}
+    restart: on-failure   # retries migrate if the database is not ready yet
+    volumes: ["./data:/data:ro", "uploads:/storage"]
+    ports: ["4000:4000"]
+    depends_on:
+      redis: { condition: service_healthy }
+      ai-service: { condition: service_started }
+
+  frontend:
+    build: ./frontend
+    ports: ["8080:80"]
+    depends_on: [backend]
+
+  postgres:
+    profiles: [localdb]
+    image: postgres:16-alpine
+    environment: { POSTGRES_USER: onboard, POSTGRES_PASSWORD: onboard, POSTGRES_DB: onboardiq }
+    ports: ["5432:5432"]
+
+volumes:
+  uploads:

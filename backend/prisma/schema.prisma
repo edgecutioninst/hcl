@@ -1,0 +1,170 @@
+generator client {
+  provider = "prisma-client-js"
+  binaryTargets = ["native", "debian-openssl-3.0.x"]
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id           String        @id @default(uuid())
+  email        String        @unique
+  passwordHash String
+  role         String // APPLICANT | KYC_OFFICER | COMPLIANCE_OFFICER
+  name         String
+  createdAt    DateTime      @default(now())
+  applications Application[]
+}
+
+model Application {
+  id               String    @id // A2000001 style
+  userId           String
+  user             User      @relation(fields: [userId], references: [id])
+  applicationDate  String // YYYY-MM-DD (IST calendar date)
+  fullName         String
+  dob              String
+  gender           String?
+  panNumber        String
+  aadhaarLast4     String
+  mobile           String
+  email            String
+  address          String
+  city             String
+  state            String
+  pincode          String
+  occupationCode   String
+  annualIncome     Int
+  consent          Boolean   @default(false)
+  status           String    @default("DRAFT")
+  decision         String?
+  reasonCodes      String[]  @default([])
+  nameMatchScore   Float?
+  riskCategory     String?
+  rekycDueDate     String?
+  ruleDetails      Json?
+  aiSummary        String?
+  version          Int       @default(1)
+  submittedAt      DateTime?
+  reviewStartedAt  DateTime?
+  reviewEndedAt    DateTime?
+  checkerSlaDue    DateTime?
+  resubmissionDue  DateTime?
+  decidedAt        DateTime?
+  customerId       String?
+  accountNumber    String?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+  documents        Document[]
+  reviews          Review[]
+
+  @@index([status])
+  @@index([panNumber])
+}
+
+model Document {
+  id                String           @id // D3000001 style; sortable, lowest wins per type
+  applicationId     String
+  application       Application      @relation(fields: [applicationId], references: [id])
+  fileName          String // original client name
+  storedName        String // uuid on disk, outside web root
+  mimeType          String
+  size              Int
+  sha256            String
+  declaredDocType   String
+  classifiedDocType String?
+  docTypeConfidence Float?
+  extractionStatus  String           @default("PENDING") // PENDING | PROCESSING | DONE | FAILED
+  extractorVersion  String?
+  ocrText           String?
+  ocrConfidence     Float?
+  active            Boolean          @default(true) // false once superseded by a resubmission
+  uploadedAt        DateTime         @default(now())
+  fields            ExtractedField[]
+
+  @@unique([applicationId, sha256])
+}
+
+model ExtractedField {
+  id          Int      @id @default(autoincrement())
+  documentId  String
+  document    Document @relation(fields: [documentId], references: [id])
+  fieldName   String
+  value       String?
+  confidence  Float
+  source      String // MOCK | AI | OFFICER
+  sourceStart Int?
+  sourceEnd   Int?
+  active      Boolean  @default(true)
+  createdBy   String?
+  reason      String?
+  createdAt   DateTime @default(now())
+
+  @@index([documentId, active])
+}
+
+model Review {
+  id             Int         @id @default(autoincrement())
+  applicationId  String
+  application    Application @relation(fields: [applicationId], references: [id])
+  userId         String
+  stage          String // MAKER | CHECKER
+  action         String // APPROVE | REJECT | REQUEST_RESUBMISSION | SEND_BACK
+  comment        String
+  createdAt      DateTime    @default(now())
+}
+
+// Append-only: the API exposes no update or delete on this table.
+model AuditLog {
+  id            Int      @id @default(autoincrement())
+  applicationId String?
+  userId        String?
+  role          String?
+  action        String
+  entityType    String?
+  entityId      String?
+  before        Json?
+  after         Json?
+  createdAt     DateTime @default(now())
+
+  @@index([applicationId, createdAt])
+}
+
+model WatchlistEntry {
+  id          String  @id // SAN0001 / PEP0001
+  list        String // SANCTIONS | PEP
+  name        String
+  alias       String?
+  dob         String?
+  nationality String?
+  program     String?
+  position    String?
+  category    String?
+}
+
+model ExistingCustomer {
+  customerId String  @id
+  fullName   String
+  panNumber  String  @unique
+  dob        String
+  accountNumber String?
+  rekycDueDate  String?
+  applicationId String? @unique // set when opened by OnboardIQ
+  createdAt     DateTime @default(now())
+}
+
+model Occupation {
+  code        String @id
+  description String
+  riskLevel   String
+}
+
+model RuleConfig {
+  id        Int      @id @default(autoincrement())
+  version   String
+  values    Json
+  active    Boolean  @default(true)
+  updatedBy String?
+  updatedAt DateTime @updatedAt
+}

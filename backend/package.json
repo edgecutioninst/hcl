@@ -1,0 +1,36 @@
+{
+  "name": "onboardiq-backend",
+  "version": "1.0.0",
+  "main": "src/server.js",
+  "scripts": {
+    "start": "node src/server.js",
+    "seed": "node prisma/seed.js",
+    "test": "node test/rules.test.js && node test/api.test.js",
+    "test:rules": "node test/rules.test.js",
+    "batch": "node batch.js",
+    "migrate": "prisma migrate deploy"
+  },
+  "type": "commonjs",
+  "dependencies": {
+    "@prisma/client": "^6.19.3",
+    "bcryptjs": "^3.0.2",
+    "bullmq": "^5.58.0",
+    "cors": "^2.8.5",
+    "csv-parse": "^5.6.0",
+    "csv-stringify": "^6.5.2",
+    "dotenv": "^17.2.2",
+    "express": "^5.1.0",
+    "fastest-levenshtein": "^1.0.16",
+    "ioredis": "^5.7.0",
+    "jsonwebtoken": "^9.0.2",
+    "multer": "^2.0.2",
+    "node-cron": "^4.2.1"
+  },
+  "devDependencies": {
+    "prisma": "^6.19.3"
+  },
+  "private": true,
+  "prisma": {
+    "seed": "node prisma/seed.js"
+  }
+}
